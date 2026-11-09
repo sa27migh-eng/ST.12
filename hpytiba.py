@@ -182,7 +182,5 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
 if __name__ == "__main__":
-    url = f"http://localhost:{PORT}"
-    print(f"الموقع شغّال على {url}  (للإيقاف: Ctrl+C)")
-    threading.Timer(0.8, lambda: webbrowser.open(url)).start()
+    print(f"الموقع شغّال على المنفذ {PORT}")
     ThreadingHTTPServer(("0.0.0.0", PORT), Handler).serve_forever()
