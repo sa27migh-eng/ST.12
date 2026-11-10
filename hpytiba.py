@@ -1,16 +1,11 @@
 # -*- coding: utf-8 -*-
-"""موقع طيوب - يشتغل بدون تثبيت أي مكتبة.
-التشغيل:   python app.py
-بعدها افتح:  http://localhost:8000
+"""موقع طيوب - نسخة Streamlit للنشر على share.streamlit.io
+التشغيل محلياً:  streamlit run app.py
 """
+import base64
 import html
-import os
-import threading
-import webbrowser
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-PORT = int(os.environ.get("PORT", 8000))
+import streamlit as st
 
 # ───────────── عدّل هنا ─────────────
 SITE_TITLE = "طيوب"
@@ -72,64 +67,47 @@ QR_ROWS = [
     "10111010000000000010001100000000000000000",
     "10000010000000000000011000000000000000000",
     "11111110000000000001010000000000000000000",
-]   # باركود القلب (1 = نقطة)
+]  # باركود القلب (1 = نقطة)
 QR_COLOR = "#be0023"
 
+st.set_page_config(page_title=SITE_TITLE, page_icon="🎁", layout="centered")
 
 CSS = """
-:root{--bg:#2a0a18;--bg2:#3d1226;--card:#4a1830;--rose:#e8456b;--blush:#f7c6d2;--cream:#fff1ec;color-scheme:dark}
-*{box-sizing:border-box;margin:0}
-html,body{min-height:100%}
-body{font-family:'Cairo','Tajawal','Segoe UI',Tahoma,sans-serif;color:var(--cream);
- background:radial-gradient(120% 80% at 50% 0%,var(--bg2),var(--bg) 70%) fixed;
- display:flex;flex-direction:column;align-items:center;padding:3rem 1.25rem 4rem}
-h1{font-family:'Aref Ruqaa','Amiri',serif;font-weight:700;font-size:clamp(4rem,16vw,7.5rem);
- line-height:1.1;color:var(--blush);text-shadow:0 0 40px rgba(232,69,107,.45)}
-.sub{margin-top:.5rem;color:#d9a9b8;font-size:1.1rem}
-.gifts{margin-top:3rem;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.5rem;width:min(720px,100%)}
+@import url('https://fonts.googleapis.com/css2?family=Aref+Ruqaa:wght@700&family=Cairo:wght@400;700&display=swap');
+:root{--bg:#2a0a18;--bg2:#3d1226;--card:#4a1830;--rose:#e8456b;--blush:#f7c6d2;--cream:#fff1ec}
+#MainMenu,header,footer,[data-testid="stToolbar"],[data-testid="stDecoration"]{display:none !important;visibility:hidden}
+.stApp{background:radial-gradient(120% 80% at 50% 0%,var(--bg2),var(--bg) 70%) fixed !important;
+ font-family:'Cairo','Tajawal','Segoe UI',Tahoma,sans-serif;color:var(--cream);direction:rtl}
+.block-container{padding:3rem 1.25rem 4rem !important;max-width:760px !important}
+.site-title{font-family:'Aref Ruqaa','Amiri',serif;font-weight:700;font-size:clamp(4rem,16vw,7.5rem);
+ line-height:1.1;color:var(--blush);text-shadow:0 0 40px rgba(232,69,107,.45);text-align:center}
+.sub{margin-top:.5rem;color:#d9a9b8;font-size:1.1rem;text-align:center}
+.gifts{margin-top:3rem;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.5rem;width:100%}
 @media(max-width:560px){.gifts{grid-template-columns:1fr}}
-.gift{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.9rem;
- min-height:260px;padding:2rem 1rem;border-radius:28px;text-decoration:none;color:var(--cream);
+a.gift{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.9rem;
+ min-height:260px;padding:2rem 1rem;border-radius:28px;text-decoration:none !important;color:var(--cream) !important;
  background:linear-gradient(160deg,var(--card),#35112a);border:1px solid rgba(247,198,210,.18);
  overflow:hidden;transition:transform .2s,border-color .2s}
-.gift:hover,.gift:focus-visible{transform:translateY(-6px);border-color:var(--rose);outline:none}
-.gift::before{content:"";position:absolute;inset:0 auto 0 50%;width:26px;margin-left:-13px;background:rgba(232,69,107,.28)}
-.gift::after{content:"";position:absolute;left:0;right:0;top:46%;height:26px;background:rgba(232,69,107,.28)}
+a.gift:hover{transform:translateY(-6px);border-color:var(--rose)}
+a.gift::before{content:"";position:absolute;inset:0 auto 0 50%;width:26px;margin-left:-13px;background:rgba(232,69,107,.28)}
+a.gift::after{content:"";position:absolute;left:0;right:0;top:46%;height:26px;background:rgba(232,69,107,.28)}
 .gift .icon,.gift .name{position:relative;z-index:1}
 .icon{font-size:3.4rem;filter:drop-shadow(0 6px 14px rgba(0,0,0,.4))}
 .name{font-size:1.5rem;font-weight:700;background:var(--bg);padding:.25rem 1.1rem;border-radius:999px}
-.panel{margin-top:2.5rem;width:min(640px,100%);text-align:center;background:linear-gradient(160deg,var(--card),#35112a);
+.panel{margin:2.5rem auto 0;width:min(640px,100%);text-align:center;background:linear-gradient(160deg,var(--card),#35112a);
  border:1px solid rgba(247,198,210,.18);border-radius:28px;padding:2rem 1.5rem}
-.panel h2{font-family:'Aref Ruqaa','Amiri',serif;font-size:2.2rem;color:var(--blush);margin-bottom:1.25rem}
-.qr svg{width:100%;max-width:420px;height:auto;border-radius:18px;display:block;margin:0 auto}
-.panel .msg{font-size:1.15rem;line-height:2.1;white-space:pre-wrap;text-align:right}
-.back{margin-top:1.75rem;display:inline-block;padding:.7rem 1.6rem;border-radius:999px;background:var(--rose);
- color:#fff;text-decoration:none;font-weight:700;font-size:1.05rem}
-.back:hover,.back:focus-visible{background:#f2607f;outline:2px solid var(--blush);outline-offset:3px}
+.panel h2{font-family:'Aref Ruqaa','Amiri',serif;font-size:2.2rem;color:var(--blush);margin-bottom:1.25rem;padding:0}
+.panel img{width:100%;max-width:420px;height:auto;border-radius:18px;display:block;margin:0 auto}
+.panel .msg{font-size:1.15rem;line-height:2.1;text-align:right}
+.back-wrap{text-align:center}
+a.back{margin-top:1.75rem;display:inline-block;padding:.7rem 1.6rem;border-radius:999px;background:var(--rose);
+ color:#fff !important;text-decoration:none !important;font-weight:700;font-size:1.05rem}
+a.back:hover{background:#f2607f}
 """
 
-def page(body, title=SITE_TITLE):
-    return f"""<!doctype html>
-<html lang="ar" dir="rtl"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{html.escape(title)}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Aref+Ruqaa:wght@700&family=Cairo:wght@400;700&display=swap" rel="stylesheet">
-<style>{CSS}</style></head><body>
-<h1>{html.escape(SITE_TITLE)}</h1>
-{body}
-</body></html>""".encode("utf-8")
 
-def home():
-    return page("""
-<p class="sub">اختار هديتك</p>
-<div class="gifts">
-  <a class="gift" href="/gift/1"><span class="icon">🎁</span><span class="name">الهدية الأولى</span></a>
-  <a class="gift" href="/gift/2"><span class="icon">🎁</span><span class="name">الهدية الثانية</span></a>
-</div>""")
-
-def qr_svg():
-    """يرسم الباركود نقاط (والمربعات الكبيرة الثلاثة صلبة) بدون أي صورة."""
+def qr_data_uri() -> str:
+    """يرسم الباركود SVG ويرجعه كصورة مضمّنة (data URI)."""
     n, b = len(QR_ROWS), 4
     out = []
     for r, row in enumerate(QR_ROWS):
@@ -142,45 +120,42 @@ def qr_svg():
             else:
                 out.append(f'<circle cx="{x + .5}" cy="{y + .5}" r=".46"/>')
     size = n + 2 * b
-    return (f'<svg viewBox="0 0 {size} {size}" xmlns="http://www.w3.org/2000/svg" role="img" '
-            f'aria-label="باركود على شكل قلب"><rect width="{size}" height="{size}" fill="#fff"/>'
-            f'<g fill="{QR_COLOR}">' + "".join(out) + "</g></svg>")
+    svg = (
+        f'<svg viewBox="0 0 {size} {size}" xmlns="http://www.w3.org/2000/svg">'
+        f'<rect width="{size}" height="{size}" fill="#fff"/>'
+        f'<g fill="{QR_COLOR}">' + "".join(out) + "</g></svg>"
+    )
+    return "data:image/svg+xml;base64," + base64.b64encode(svg.encode()).decode()
 
-def gift1():
-    return page(f"""
-<div class="panel">
-  <h2>الهدية الأولى</h2>
-  <div class="qr">{qr_svg()}</div>
-</div>
-<a class="back" href="/">الرجوع للهدايا</a>""", "الهدية الأولى")
 
-def gift2():
-    return page(f"""
-<div class="panel">
-  <h2>{html.escape(GREETING_TITLE)}</h2>
-  <p class="msg">{html.escape(GREETING_TEXT)}</p>
-</div>
-<a class="back" href="/">الرجوع للهدايا</a>""", "الهدية الثانية")
+def render(body: str):
+    # ملاحظة: الـ HTML بدون مسافات بادئة وبدون أسطر فارغة حتى لا يفسّره Markdown ككود
+    st.markdown(f"<style>{CSS}</style>", unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="site-title">{html.escape(SITE_TITLE)}</div>{body}',
+        unsafe_allow_html=True,
+    )
 
-class Handler(BaseHTTPRequestHandler):
-    def _send(self, data, ctype):
-        self.send_response(200)
-        self.send_header("Content-Type", ctype)
-        self.send_header("Content-Length", str(len(data)))
-        self.send_header("Cache-Control", "no-store")
-        self.end_headers()
-        self.wfile.write(data)
 
-    def do_GET(self):
-        path = self.path.split("?")[0].rstrip("/") or "/"
-        routes = {"/": home, "/gift/1": gift1, "/gift/2": gift2}
-        if path in routes:
-            return self._send(routes[path](), "text/html; charset=utf-8")
-        self.send_error(404, "Not found")
+BACK = '<div class="back-wrap"><a class="back" href="?" target="_self">الرجوع للهدايا</a></div>'
 
-    def log_message(self, *a):
-        pass
+gift = st.query_params.get("gift")
 
-if __name__ == "__main__":
-    print(f"الموقع شغّال على المنفذ {PORT}")
-    ThreadingHTTPServer(("0.0.0.0", PORT), Handler).serve_forever()
+if gift == "1":
+    render(
+        '<div class="panel"><h2>الهدية الأولى</h2>'
+        f'<img src="{qr_data_uri()}" alt="باركود على شكل قلب"></div>' + BACK
+    )
+elif gift == "2":
+    msg = html.escape(GREETING_TEXT).replace("\n", "<br>")
+    render(
+        f'<div class="panel"><h2>{html.escape(GREETING_TITLE)}</h2>'
+        f'<p class="msg">{msg}</p></div>' + BACK
+    )
+else:
+    render(
+        '<p class="sub">اختار هديتك</p><div class="gifts">'
+        '<a class="gift" href="?gift=1" target="_self"><span class="icon">🎁</span><span class="name">الهدية الأولى</span></a>'
+        '<a class="gift" href="?gift=2" target="_self"><span class="icon">🎁</span><span class="name">الهدية الثانية</span></a>'
+        "</div>"
+    )
